@@ -7,7 +7,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Google Apps Script URL - to be set in environment variables
-const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s/AKfycbzIXDT_TrHxtIvxpW6X8_jizBVl7lzYEB_NcR8rZqqLzXhz9aXRHTE9aJENJrdrL0MKWQ/exec';
 
 // Initialize express
 const app = express();
