@@ -7,16 +7,17 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Google Apps Script URL - to be set in environment variables
-const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s/AKfycbzIXDT_TrHxtIvxpW6X8_jizBVl7lzYEB_NcR8rZqqLzXhz9aXRHTE9aJENJrdrL0MKWQ/exec';
 
 // Initialize express
 const app = express();
 
-// Configure CORS
+// Configure CORS - be more permissive to allow requests from any origin
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Handle preflight OPTIONS requests
@@ -27,6 +28,9 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
+
+// Parse JSON bodies
+app.use(express.json());
 
 // Handle GET requests (for data fetching)
 app.get('/api', async (req, res) => {
@@ -45,19 +49,25 @@ app.get('/api', async (req, res) => {
       url.searchParams.append(key, req.query[key]);
     });
     
-    // Fetch from Google Apps Script
+    console.log(`Forwarding GET request to: ${url.toString()}`);
+    
+    // Fetch from Google Apps Script with explicit content type and timeout
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      timeout: 30000 // 30 seconds timeout
     });
     
     if (!response.ok) {
+      console.error(`Error response: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log(`Success response for ${action}:`, data);
     return res.json(data);
   } catch (error) {
     console.error('Proxy error:', error);
@@ -79,6 +89,10 @@ app.post('/api', upload.array('files'), async (req, res) => {
       });
     }
 
+    console.log(`Handling POST request for action: ${action}`);
+    console.log('Request body:', req.body);
+    console.log('Files:', req.files);
+    
     // Create FormData for forwarding to Google Apps Script
     const formData = new FormData();
     formData.append('action', action);
@@ -99,18 +113,22 @@ app.post('/api', upload.array('files'), async (req, res) => {
     
     // Forward request to Google Apps Script
     const url = new URL(TARGET_URL);
-    url.searchParams.append('action', action);
+    
+    console.log(`Forwarding POST request to: ${url.toString()}`);
     
     const response = await fetch(url.toString(), {
       method: 'POST',
-      body: formData
+      body: formData,
+      timeout: 30000 // 30 seconds timeout
     });
     
     if (!response.ok) {
+      console.error(`Error response: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log(`Success response for ${action}:`, data);
     return res.json(data);
   } catch (error) {
     console.error('Proxy error:', error);
@@ -128,6 +146,11 @@ app.use((err, req, res, next) => {
     success: false, 
     error: err.message || 'Internal server error' 
   });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // Start server
