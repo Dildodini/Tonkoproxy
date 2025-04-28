@@ -1,40 +1,139 @@
-// /api/index.js
 
-export default async function handler(req, res) {
-  const { query } = req;
-  const targetUrl = process.env.TARGET_URL;
+// Required Node.js modules
+const express = require('express');
+const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
-  if (!targetUrl) {
-    return res.status(500).json({ success: false, error: 'TARGET_URL not configured' });
-  }
+// Google Apps Script URL - to be set in environment variables
+const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
 
+// Initialize express
+const app = express();
+
+// Configure CORS
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Handle preflight OPTIONS requests
+app.options('*', cors());
+
+// Middleware to log requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Handle GET requests (for data fetching)
+app.get('/api', async (req, res) => {
   try {
-    const url = new URL(targetUrl);
+    const action = req.query.action;
+    if (!action) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing action parameter' 
+      });
+    }
 
-    // Передаем все query-параметры из запроса клиента
-    Object.keys(query).forEach(key => {
-      url.searchParams.append(key, query[key]);
+    // Build target URL with query parameters
+    const url = new URL(TARGET_URL);
+    Object.keys(req.query).forEach(key => {
+      url.searchParams.append(key, req.query[key]);
     });
-
+    
+    // Fetch from Google Apps Script
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     });
-
-    const contentType = response.headers.get('content-type');
-
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      res.status(200).json(data);
-    } else {
-      const text = await response.text();
-      res.status(200).send(text);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
     }
-
+    
+    const data = await response.json();
+    return res.json(data);
   } catch (error) {
     console.error('Proxy error:', error);
-    res.status(500).json({ success: false, error: error.toString() });
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Proxy server error' 
+    });
   }
-}
+});
+
+// Handle POST requests (for data submission and file uploads)
+app.post('/api', upload.array('files'), async (req, res) => {
+  try {
+    const action = req.query.action;
+    if (!action) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing action parameter' 
+      });
+    }
+
+    // Create FormData for forwarding to Google Apps Script
+    const formData = new FormData();
+    formData.append('action', action);
+    
+    // Add any JSON data if provided
+    if (req.body.data) {
+      formData.append('data', req.body.data);
+    }
+    
+    // Add any files if uploaded
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file, index) => {
+        // Create a file object from the buffer
+        const blob = new Blob([file.buffer], { type: file.mimetype });
+        formData.append(`file${index}`, blob, file.originalname);
+      });
+    }
+    
+    // Forward request to Google Apps Script
+    const url = new URL(TARGET_URL);
+    url.searchParams.append('action', action);
+    
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error('Proxy error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Proxy server error' 
+    });
+  }
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ 
+    success: false, 
+    error: err.message || 'Internal server error' 
+  });
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Proxy server is running on port ${PORT}`);
+});
+
+module.exports = app;
