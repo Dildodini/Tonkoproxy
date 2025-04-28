@@ -12,12 +12,13 @@ const TARGET_URL = process.env.TARGET_URL || 'https://script.google.com/macros/s
 // Initialize express
 const app = express();
 
-// Configure CORS - be more permissive to allow requests from any origin
+// Configure CORS - more permissive to allow all origins, methods and headers
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Accept', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400
 }));
 
 // Handle preflight OPTIONS requests
@@ -68,6 +69,12 @@ app.get('/api', async (req, res) => {
     
     const data = await response.json();
     console.log(`Success response for ${action}:`, data);
+    
+    // Set CORS headers explicitly
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Accept');
+    
     return res.json(data);
   } catch (error) {
     console.error('Proxy error:', error);
@@ -129,6 +136,12 @@ app.post('/api', upload.array('files'), async (req, res) => {
     
     const data = await response.json();
     console.log(`Success response for ${action}:`, data);
+    
+    // Set CORS headers explicitly
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Accept');
+    
     return res.json(data);
   } catch (error) {
     console.error('Proxy error:', error);
