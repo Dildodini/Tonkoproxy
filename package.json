@@ -2,28 +2,25 @@
 {
   "name": "tonko-proxy",
   "version": "1.0.0",
-  "description": "Proxy server for Tonko jewelry workshop application",
+  "description": "Proxy server for Тонко jewelry workshop application",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon index.js"
   },
-  "keywords": [
-    "proxy",
-    "cors",
-    "google-apps-script"
-  ],
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "http-proxy-middleware": "^2.0.6",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^2.0.22"
   },
   "engines": {
-    "node": ">=18.x"
-  }
+    "node": ">=14"
+  },
+  "author": "",
+  "license": "MIT"
 }
